@@ -1,9 +1,9 @@
 import time
 import pyautogui
 import tkinter as tk
-from tkinter import *
 import cv2
 import numpy as np
+import threading
 
 # Inicialização das coordenadas
 area_cor = None
@@ -22,12 +22,13 @@ def selecionar_area(area):
     cv2.namedWindow('Selecione a Área')
     cv2.setMouseCallback('Selecione a Área', on_click)
 
-    while True:
+    while area is None:  # Continue o loop até que uma área seja selecionada
         screenshot = pyautogui.screenshot()
         screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
         cv2.imshow('Selecione a Área', screenshot)
-        if cv2.waitKey(1) & 0xFF == ord('q') or area is not None:
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+    return area
 
 def verificar_cor(pixel):
     r, g, b = pixel
@@ -36,8 +37,9 @@ def verificar_cor(pixel):
     else:
         return "vermelho"
 
-def iniciar_automacao():
+def iniciar_automacao(area_cor):
     global gravando, frames_gravacao
+    gravando = True
     while gravando:
         screenshot = pyautogui.screenshot()
         cor = screenshot.getpixel(area_cor)
@@ -58,6 +60,37 @@ def iniciar_automacao():
 def parar_automacao():
     global gravando
     gravando = False
+
+def iniciar_interface_grafica():
+    root = tk.Tk()
+
+def iniciar_selecao_cor(t, param):
+    global area_cor, area_comprar, area_vender
+    area_cor = [None]
+    area_comprar = [None]
+    area_vender = [None]
+    if t == 'area_cor':
+        area_cor = selecionar_area(area_cor)
+        print("Área de cor selecionada:", area_cor[0])
+    elif t == 'area_comprar':
+        area_comprar = selecionar_area(area_comprar)
+        print("Área de cor selecionada:", area_comprar[0])
+    elif t == 'area_vender':
+        area_vender = selecionar_area(area_vender)
+        print("Área de cor selecionada:", area_vender[0])
+
+if __name__ == "__main__":
+    interface_thread = threading.Thread(target=iniciar_interface_grafica)
+    automacao_thread = threading.Thread(target=iniciar_automacao, args=(area_cor,))
+
+    interface_thread.start()
+
+    # Aguarde até que a interface gráfica seja fechada antes de iniciar a automação
+    interface_thread.join()
+
+    # Somente inicie a thread de automação após a interface gráfica ser fechada
+    automacao_thread.start()
+    automacao_thread.join()  # Aguarde a conclusão da automação, se necessário
 
 # Criação da interface gráfica
 root = tk.Tk()
@@ -83,7 +116,7 @@ start_button = tk.Button(
     text="Iniciar Automação", 
     font=("Helvetica", 10, "bold"), 
     background="limegreen", 
-    command=iniciar_automacao
+    command=lambda: iniciar_automacao(area_cor)
 )
 stop_button = tk.Button(
     actions, 
@@ -102,7 +135,7 @@ select_cor_button = tk.Button(
     font=("Helvetica", 10, "bold"), 
     background="cornflowerblue", 
     border=2, 
-    command=lambda: selecionar_area(area_cor)
+    command=lambda: iniciar_selecao_cor('area_cor', area_cor)
 )
 select_comprar_button = tk.Button(
     root, 
@@ -111,7 +144,7 @@ select_comprar_button = tk.Button(
     text="Selecionar Área de Compra", 
     font=("Helvetica", 10, "bold"), 
     background="darksalmon", 
-    command=lambda: selecionar_area(area_comprar)
+    command=lambda: iniciar_selecao_cor('area_comprar', area_comprar)
 )
 select_vender_button = tk.Button(
     root, 
@@ -120,7 +153,7 @@ select_vender_button = tk.Button(
     text="Selecionar Área de Venda", 
     font=("Helvetica", 10, "bold"), 
     background="lightgreen", 
-    command=lambda: selecionar_area(area_vender)
+    command=lambda: iniciar_selecao_cor('area_vender', area_vender)
 )
 footer = tk.Frame(root, height=10, bg="#1e1e1e")
 footer.grid_columnconfigure(0, weight=1)
